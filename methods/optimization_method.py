@@ -28,6 +28,7 @@ class OptimizationMethod(ABC):
     @abstractmethod
     def __update_hessian(self):
         """
+        Update H(k+1)
         The algorithm here differs methods:
         - Broyden
         - Simple Rank 1
