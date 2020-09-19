@@ -1,18 +1,15 @@
-# This is a sample Python script.
-
-# Press Ctrl+F5 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import math
 from methods.optimization_method import OptimizationMethod
+from optimization_problem import *
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press F9 to toggle the breakpoint.
-
+def f(x):
+    return x
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
-    optimize_method = OptimizationMethod()
+    problem = OptimizationProblem(f)
+    x_0 = 4.
+    optimize_method = OptimizationMethod(x_0)
+    optimize_method.optimize(problem=problem)
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
