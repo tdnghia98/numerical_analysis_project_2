@@ -60,7 +60,7 @@ class OptimizationMethod:
         :return:
         """
         # x(*)
-        self.nr_iteration = 0
+        self.nr_iteration = 1
         while True:
             # Update s_k
             self.__update_newton_direction(problem.function)
