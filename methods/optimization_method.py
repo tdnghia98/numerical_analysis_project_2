@@ -1,22 +1,50 @@
-import autograd
+from methods.utils.gradient_hessian import *
+from scipy.optimize import fmin
 
-class OptimizationMethod():
+
+class OptimizationMethod:
     """
     The optimization Method Class is an abstract class representing a Quasi Newton method
 
     Initialization
     ----
-    x0: Number
+    x_0: Vector (numpy array)
         Initial guess
+
+    Attributes
+    ----
+    x_k: Vector (numpy array)
+        Vector that make the problem minimum. When not solved, defaults to x_0
+    s_k: Vector (numpy array)
+        Newton direction vector. When the optimization is not initiated, this attribute is None
+    nr_iteration: Number
+        Number of iterations that was used to solve the problem
     """
-    def __init__(self, x0):
-        self.x0 = x0
+
+    def __init__(self, x_0):
+        self.x_0 = x_0
+        self.x_k = x_0
+        self.s_k = None
+        self.nr_iteration = 0
 
     def optimize(self, problem):
-        return self.__newton_optimization(problem)
-
-    def __exact_line_search(self):
         raise NotImplementedError
+
+    def __find_alpha_exact_line_search(self, f):
+        """
+        Perform exact line search to determine alpha_k
+        that minimizes f(x_k + alpha_k * s_k)
+        (see 3.5)
+        :return: alpha_k
+        """
+
+        def h(alpha):
+            return f(self.x_k + alpha * self.s_k)
+
+        alpha_0 = 0
+
+        # disp = False prevents printing optimization result to console
+        return fmin(h, alpha_0, disp=False)
 
     def __inexact_line_search(self):
         raise NotImplementedError
@@ -24,7 +52,7 @@ class OptimizationMethod():
     def __find_acceptable_point(self):
         raise NotImplementedError
 
-    def __newton_optimization(self, problem):
+    def newton_optimization(self, problem, use_exact_line_search=True, display_log=True):
         """
         Solve optimization using base Newton method (see 3.3)
         :param
@@ -32,47 +60,51 @@ class OptimizationMethod():
         :return:
         """
         # x(*)
-        x_k = self.x0
-        x_k_plus_1 = self.__newton_iteration(x_k, problem.function)
-        while x_k != x_k_plus_1:
-            x_k = x_k_plus_1
-            x_k_plus_1 = self.__newton_iteration(x_k, problem.function)
-        return x_k
+        self.nr_iteration = 0
+        while True:
+            # Update s_k
+            self.__update_newton_direction(problem.function)
+            alpha = 1
+            if use_exact_line_search:
+                alpha = self.__find_alpha_exact_line_search(problem.function)
+            x_k_plus_1 = self.x_k + alpha * self.s_k
 
-    def __newton_iteration(self, f, x_k):
+            # Break condition
+            if np.array_equal(self.x_k, x_k_plus_1):
+                break
+
+            # Reassign x_k
+            self.x_k = x_k_plus_1
+            # Increment iteration count
+            self.nr_iteration += 1
+
+        if display_log:
+            successful_message = "Optimization successful using basic newton method"
+            print(successful_message)
+            line_search_message = "With use of exact line search" if use_exact_line_search else None
+            if line_search_message is not None:
+                print(line_search_message)
+            number_of_iteration_message = f"Number of iteration: {self.nr_iteration}"
+            print(number_of_iteration_message)
+            optimization_result_message = f"Optimization result: {self.x_k}"
+            print(optimization_result_message)
+            print()
+
+        return self.x_k
+
+    def __update_newton_direction(self, f):
         """
-        Incremental calculation of Basic method: Newton Iteration (see 3.3)
+        Update the newton direction vector
         :param
-            x_k:
-                Local minimizer, when doing full newton iteration, the x_0 should be supplied
             f:
                 Objective function that needs to be optimized
         :return:
         """
-        x_k_plus_1 = x_k - 1/self.__hessian(f, x_k)(x_k) * self.__gradient(f, x_k)(x_k)
-        return x_k_plus_1
-
-    def __hessian(self, f, x):
-        """
-        Calculate the hessian of the given function (G)
-        :param f: Function which hessian should be calculated
-        :param x: Double
-            Input (x axis)
-        :return: Hessian of input function
-        """
-        raise NotImplementedError
-
-    def __gradient(self, f, x):
-        """
-        Calculate the gradient of the given function (g)
-        :param f: Function which gradient should be calculated
-        :param x: Double
-            Input (x axis)
-        :return: Hessian of input function
-        """
-        eps = 1e-8
-        return (f(x + eps) - f(x))/eps
-
+        gradient_matrix = grad(f)(self.x_k)
+        hessian_matrix = hessian(f)(self.x_k)
+        inverse_hessian_matrix = np.linalg.inv(hessian_matrix)
+        # Newton direction (see 3.3)
+        self.s_k = -inverse_hessian_matrix.dot(gradient_matrix)
 
     def __update_hessian(self):
         """

@@ -1,15 +1,20 @@
 import math
 from methods.optimization_method import OptimizationMethod
 from optimization_problem import *
+import numpy as np
 
-def f(x):
-    return x
+
+def rosenbrock(x):
+    return 100 * (x[1] - x[0]) ** 2 + (1 - x[0]) ** 2  # Rosenbrock function
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    problem = OptimizationProblem(f)
-    x_0 = 4.
-    optimize_method = OptimizationMethod(x_0)
-    optimize_method.optimize(problem=problem)
+    rosenbrock_vec = np.vectorize(rosenbrock)
+    x_0 = np.array([1, 5])
 
+    problem = OptimizationProblem(rosenbrock)
+    optimize_method = OptimizationMethod(x_0)
+    x_k = optimize_method.newton_optimization(problem=problem, use_exact_line_search=False)
+    x_k = optimize_method.newton_optimization(problem=problem, use_exact_line_search=True)
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
