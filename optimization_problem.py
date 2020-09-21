@@ -11,14 +11,12 @@ class OptimizationProblem:
         ----
         function: Function
             objective function
-        gradient: Matrix
-            function's gradient - optional
     """
 
-    def __init__(self, function, **kwargs):
+    def __init__(self, function):
         self.function = function
         # Check is the function is objective and raise error
-        self.gradient = kwargs.get('gradient')
+
 
     def __check_objective(self, function):
         raise NotImplementedError

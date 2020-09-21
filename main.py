@@ -1,18 +1,20 @@
-# This is a sample Python script.
-
-# Press Ctrl+F5 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import math
 from methods.optimization_method import OptimizationMethod
+from optimization_problem import *
+import numpy as np
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press F9 to toggle the breakpoint.
+def rosenbrock(x):
+    return 100 * (x[1] - x[0]) ** 2 + (1 - x[0]) ** 2  # Rosenbrock function
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
-    optimize_method = OptimizationMethod()
+    rosenbrock_vec = np.vectorize(rosenbrock)
+    x_0 = np.array([1, 5])
 
+    problem = OptimizationProblem(rosenbrock)
+    optimize_method = OptimizationMethod(x_0)
+    x_k = optimize_method.newton_optimization(problem=problem, use_exact_line_search=False)
+    x_k = optimize_method.newton_optimization(problem=problem, use_exact_line_search=True)
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
