@@ -102,9 +102,8 @@ class OptimizationMethod:
         """
         gradient_matrix = grad(f)(self.x_k)
         hessian_matrix = hessian(f)(self.x_k)
-        inverse_hessian_matrix = np.linalg.inv(hessian_matrix)
         # Newton direction (see 3.3)
-        self.s_k = -inverse_hessian_matrix.dot(gradient_matrix)
+        self.s_k = -np.linalg.solve(hessian_matrix, gradient_matrix)
 
     def __update_hessian(self):
         """
