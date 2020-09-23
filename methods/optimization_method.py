@@ -109,7 +109,7 @@ class OptimizationMethod:
             gradient_matrix = grad(f)(self.x_k)
             hessian_matrix = hessGen.__next__()
             
-            if hessianUpdate == 0:
+            if hessianUpdate == 0 or hessianUpdate == 5:
             # Newton direction (see 3.3)
                 yield -np.linalg.solve(hessian_matrix, gradient_matrix)
             else:
@@ -128,7 +128,7 @@ class OptimizationMethod:
             while True:
                 yield hessian(f)(self.x_k)
         elif hessianUpdate == 1:
-            DFPgen = self.DFPhessian(f)
+            DFPgen = self.DFP(f)
             while True:
                 H = DFPgen.__next__()
                 yield H
@@ -147,15 +147,20 @@ class OptimizationMethod:
             while True:
                 H = SBgen.__next__()
                 yield H
+        elif hessianUpdate == 5:
+            BFGSgen = self.BFGS(f)
+            while True:
+                B = BFGSgen.__next__()
+                yield B
+        
 
     
-    def DFPhessian(self, f):
-        n = len(self.x_0)
+    def DFP(self, f):
         "If its the first iteration we take the identity matrix as the Hessian"
         n = len(self.x_0)
         #H = np.eye(n)
-        "For now Hzero will be the actual hessian just to get the function to work"
-        H = hessian(f)(self.x_k)
+        ##########"For now Hzero will be the actual hessian just to get the function to work"
+        H = np.eye(n)
         grad_old = grad(f)(self.x_k)
         "In this while loop we generate the rest of the Hessians"
         while True:
@@ -177,6 +182,39 @@ class OptimizationMethod:
             term2 = numer2/denom2
             "Lastly we set up the new Hessian"
             H = H - term1 - term2
+            grad_old = grad_new
+
+    def BFGS(self, f):
+        "If its the first iteration we take the identity matrix as the Hessian"
+        n = len(self.x_0)
+        #H = np.eye(n)
+        ###########"For now Hzero will be the actual hessian just to get the function to work"
+        #B = hessian(f)(self.x_k)
+        B = np.eye(n)
+        grad_old = grad(f)(self.x_k)
+        "In this while loop we generate the rest of the Hessians"
+        while True:
+            "We yield at the start of the loop since the first Hessian is created prior to the loop"
+            yield B
+            "Here get calculate the necessary gradient"
+            grad_new = grad(f)(self.x_k)
+            "Then we get y_k, that is, the change in gradient"
+            y_k = grad_new - grad_old          
+            
+            
+            
+            "we first get the first term; "
+            numer1 = B.dot(self.s_k)
+            tmpfactor = np.matmul(self.s_k.T, B)
+            numer1 = np.matmul(numer1, tmpfactor)
+            denom1 = np.matmul(tmpfactor, y_k)
+            term1 = numer1/denom1
+            "then we get the second term; "
+            numer2 = np.outer(y_k,  y_k)
+            denom2 = np.matmul(y_k, self.s_k)
+            term2 = numer2/denom2
+            "Lastly we set up the new Hessian"
+            B = B - term1 - term2
             grad_old = grad_new
 
     def GoodBroyden(self,f):
