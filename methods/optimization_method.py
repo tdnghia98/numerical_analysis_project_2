@@ -71,9 +71,9 @@ class OptimizationMethod:
             if use_exact_line_search:
                 alpha = self.__find_alpha_exact_line_search(problem.function)
             x_k_plus_1 = self.x_k + alpha * self.s_k
-
+           
             # Break condition
-            if np.array_equal(self.x_k, x_k_plus_1):
+            if np.sqrt(np.sum((self.x_k - x_k_plus_1)**2))<1e-10:
                 break
 
             # Reassign x_k
