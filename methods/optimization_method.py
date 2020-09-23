@@ -120,12 +120,7 @@ class OptimizationMethod:
         if Wolfe == True:
             condition = self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l)
             
-        while not (condition[0] and condition[1]):
-            if Goldstein == True:
-                condition = self.__Goldsteincondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
-            if Wolfe == True:
-                condition = self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l)
-                
+        while not (condition[0] and condition[1]):                
             if condition[0] == False:
                 temp = self.__Block1(alpha_0, alpha_l, fp_alpha_0, fp_alpha_l)
                 alpha_0 = temp[0]
@@ -139,6 +134,10 @@ class OptimizationMethod:
             f_alpha_0 = f_alpha(alpha_0)
             fp_alpha_l = fp_alpha(alpha_l)
             fp_alpha_0 = fp_alpha(alpha_0)
+            if Goldstein == True:
+                condition = self.__Goldsteincondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
+            if Wolfe == True:
+                condition = self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l)
 
         return [alpha_0, f_alpha(alpha_0)] 
 
