@@ -16,10 +16,10 @@ def unit_vec(i, n):
     return e
 
 
-def grad(f, eps=1e-8):
+def grad(f, eps=1e-6):
     """
     Calculate the gradient of the given function (g)
-    :param eps: epsilon, defaults to 1e-8
+    :param eps: epsilon, defaults to 1e-6
     :param f: Function which gradient should be calculated
     :param x: numpy array
         Input (x axis)
@@ -34,10 +34,10 @@ def grad(f, eps=1e-8):
     return grad_f
 
 
-def hessian(f, eps=1e-4):
+def hessian(f, eps=1e-3):
     """
     Calculate the hessian of the given function (G)
-    :param eps: epsilon, defaults to 1e-4
+    :param eps: epsilon, defaults to 1e-3
     :param f: Function which hessian should be calculated
     :param x: numpy array
         Input (x axis)

@@ -115,6 +115,11 @@ class OptimizationMethod:
         fp_alpha_l = fp_alpha(alpha_l)
         fp_alpha_0 = fp_alpha(alpha_0)
         
+        ## avert division by zero in linesearch algorithm
+        if abs(fp_alpha_l - fp_alpha_0) < 1e-16:
+            print('RuntimeWarning: Inexact linesearch skipped to avert division by zero')
+            return [1, f_alpha(1)]
+        
         if (Goldstein == False and Wolfe == False) or (Goldstein == True and Wolfe == True):
             raise NameError('Choose Goldstein or Wolfe condition.') 
         if Goldstein == True:
@@ -176,7 +181,12 @@ class OptimizationMethod:
                     raise KeyError('invalid linesearch input')
             
             x_k_plus_1 = self.x_k + alpha * s_k
-
+            
+            if display_log:
+                print('iteration:', nr_iterations)
+                print('linesearch alpha:', alpha)
+                print('update:', np.linalg.norm(alpha * s_k, 2))
+                print('residual:', np.linalg.norm(problem.grad(x_k_plus_1), 2))
 
             # Break condition, update smaller than a prescribed tolerance
             if np.linalg.norm(alpha * s_k, 2) < tol:
@@ -192,6 +202,7 @@ class OptimizationMethod:
             
 
         if display_log:
+            print()
             successful_message = "Optimization successful using basic newton method"
             print(successful_message)
             line_search_message = "With use of {} line search".format(linesearch) if linesearch else "Without linesearch"
