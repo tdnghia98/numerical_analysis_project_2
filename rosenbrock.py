@@ -47,7 +47,10 @@ if __name__ == '__main__':
     callback = lambda x: iters.append(np.copy(x))
     
     opt = OptimizationMethod()
-    sol, _ = opt.newton_optimization(rosen, x0, use_exact_line_search = True, callback = callback, tol = 1e-12)
+    sol, _ = opt.newton_optimization(rosen, x0, linesearch = 'inexact',
+                                     callback = callback, tol = 1e-12, maxiter = 100,
+                                     inexact_linesearch_wolfe = True,
+                                     inexact_linesearch_goldstein = False)
     
     ## contour plotting
     n = 100

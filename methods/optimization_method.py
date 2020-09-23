@@ -94,7 +94,7 @@ class OptimizationMethod:
         return [alpha_0, alpha_u]
     
 
-    def __find_alpha_inexact_line_search(self, f, direction, alpha_l = 0, alpha_u = 10**(99), Goldstein = True, Wolfe = False, eps = 1e-8):
+    def __find_alpha_inexact_line_search(self, f, direction, alpha_0 = None, alpha_l = 0, alpha_u = 10**(99), Goldstein = True, Wolfe = False, eps = 1e-8):
         """
         Perform inexact line search to determine alpha_k
         that minimizes f(x_k + alpha_k * s_k)
@@ -102,8 +102,10 @@ class OptimizationMethod:
         :return: alpha_k, f(x_k + alpha_k * s_k)
         """
         #which condition to be used is choosen by the user
-        #alpha_0 = np.random.randint(alpha_l,alpha_u) #maybe something better here instead of randint?
-        alpha_0 = 0.5
+        ## initial guess for alpha is last alpha
+        ## if not available, use midpoint between alpha_u and alpha_l
+        if alpha_0 is None:
+            alpha_0 = (alpha_u - alpha_l)/2
         f_alpha = lambda alpha: f(self.x_k + alpha * direction)
         fp_alpha = lambda alpha: (f_alpha(alpha + 0.5 * eps)  - f_alpha(alpha - 0.5 * eps)) / eps 
     
@@ -141,8 +143,10 @@ class OptimizationMethod:
 
         return [alpha_0, f_alpha(alpha_0)] 
 
-    def newton_optimization(self, problem, x0, use_exact_line_search=True, use_inexact_line_search = False, display_log=True,
-                            tol = 1e-8, maxiter = 1000, callback = None):
+    def newton_optimization(self, problem, x0, linesearch = None, display_log=True,
+                            tol = 1e-8, maxiter = 1000, callback = None,
+                            inexact_linesearch_wolfe = True,
+                            inexact_linesearch_goldstein = False):
         """
         Solve optimization using base Newton method (see 3.3)
         :param
@@ -161,12 +165,16 @@ class OptimizationMethod:
             # Update s_k
             s_k = self.__get_newton_direction(problem)
             alpha = 1
-            if use_exact_line_search == True:
-                alpha = self.__find_alpha_exact_line_search(problem.f, s_k)
+            if linesearch:
+                if linesearch == 'exact':
+                    alpha = self.__find_alpha_exact_line_search(problem.f, s_k)
+                elif linesearch == 'inexact':
+                    alpha = self.__find_alpha_inexact_line_search(problem.f, s_k, alpha_0 = alpha,
+                                                                  Wolfe = inexact_linesearch_wolfe,
+                                                                  Goldstein = inexact_linesearch_goldstein)[0]    
+                else:
+                    raise KeyError('invalid linesearch input')
             
-            elif use_inexact_line_search == True:
-                alpha = self.__find_alpha_inexact_line_search(problem.f, s_k)[0]
-                
             x_k_plus_1 = self.x_k + alpha * s_k
 
 
@@ -186,8 +194,7 @@ class OptimizationMethod:
         if display_log:
             successful_message = "Optimization successful using basic newton method"
             print(successful_message)
-            line_search_message = "With use of exact line search" if use_exact_line_search else None
-            line_search_message = "With use of inexact line search" if use_inexact_line_search else None
+            line_search_message = "With use of {} line search".format(linesearch) if linesearch else "Without linesearch"
 
             if line_search_message is not None:
                 print(line_search_message)
