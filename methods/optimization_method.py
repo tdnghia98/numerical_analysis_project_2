@@ -78,16 +78,16 @@ class OptimizationMethod:
     
     
     def __Block1(self, alpha_0, alpha_l, fp_alpha_0, fp_alpha_l): #extrapolation block
-        delta_alpha_0 = self.extrapolation(alpha_0, alpha_l, fp_alpha_0, fp_alpha_l)
+        delta_alpha_0 = self.__extrapolation(alpha_0, alpha_l, fp_alpha_0, fp_alpha_l)
         delta_alpha_0 = max(delta_alpha_0, self.tau*(alpha_0 - alpha_l))
         delta_alpha_0 = min(delta_alpha_0, self.kai*(alpha_0 - alpha_l))
         alpha_l = alpha_0
         alpha_0 = alpha_0 + delta_alpha_0
         return [alpha_0, alpha_l]
     
-    def __Block2(self, alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l): #interpolation block
+    def __Block2(self, alpha_0, alpha_l, alpha_u, f_alpha_0, f_alpha_l, fp_alpha_l): #interpolation block
         alpha_u = min(alpha_0, alpha_u)
-        alpha_0_bar = self.interpolation(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
+        alpha_0_bar = self.__interpolation(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
         alpha_0_bar = max(alpha_0_bar, alpha_l + self.tau*(alpha_u - alpha_l))
         alpha_0_bar = min(alpha_0_bar, alpha_u - self.tau*(alpha_u - alpha_l))
         alpha_0 = alpha_0_bar
@@ -103,7 +103,7 @@ class OptimizationMethod:
         """
         #which condition to be used is choosen by the user
         #alpha_0 = np.random.randint(alpha_l,alpha_u) #maybe something better here instead of randint?
-        alpha_0 = 0.123
+        alpha_0 = 0.9
         f_alpha = lambda alpha: f(self.x_k + alpha * direction)
         fp_alpha = lambda alpha: (f_alpha(alpha + 0.5 * eps)  - f_alpha(alpha - 0.5 * eps)) / eps 
     
@@ -115,14 +115,23 @@ class OptimizationMethod:
         
         if (Goldstein == False and Wolfe == False) or (Goldstein == True and Wolfe == True):
             raise ValueError('Choose Goldstein or Wolfe condition.') 
+        if Goldstein == True:
+            condition = self.__Goldsteincondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
+        if Wolfe == True:
+            condition = self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l)
             
-        while not (self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l) and self.__Goldsteincondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)):
-            if self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l) == False:
+        while not (condition[0] and condition[1]):
+            if Goldstein == True:
+                condition = self.__Goldsteincondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
+            if Wolfe == True:
+                condition = self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l)
+                
+            if condition[0] == False:
                 temp = self.__Block1(alpha_0, alpha_l, fp_alpha_0, fp_alpha_l)
                 alpha_0 = temp[0]
                 alpha_l = temp[1]
             else:
-                temp = self.__Block2(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
+                temp = self.__Block2(alpha_0, alpha_l, alpha_u, f_alpha_0, f_alpha_l, fp_alpha_l)
                 alpha_0 = temp[0]
                 alpha_u = temp[1]
 
