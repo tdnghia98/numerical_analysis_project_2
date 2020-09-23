@@ -7,10 +7,10 @@ Claus Führer (2016)
 
 """
 
-from  scipy import dot,linspace
 import scipy.optimize as so
-from numpy import array
-
+import numpy as np
+from optimization_problem import OptimizationProblem
+from methods.optimization_method import OptimizationMethod
 
 def T(x, n):
     """
@@ -61,24 +61,47 @@ def chebyquad_fcn(x):
         of n sample points
         """
         return sum(T(2. * xj - 1., i) for xj in x) / n
-    return array([approx_integral(i) - e for i,e in enumerate(exint)]) 
+    return np.array([approx_integral(i) - e for i,e in enumerate(exint)]) 
 
-def chebyquad(x):
-    """            
-    norm(chebyquad_fcn)**2                
-    """
-    chq = chebyquad_fcn(x)
-    return dot(chq, chq)
 
-def gradchebyquad(x):
-    """
-    Evaluation of the gradient function of chebyquad
-    """
-    chq = chebyquad_fcn(x)
-    UM = 4. / len(x) * array([[(i+1) * U(2. * xj - 1., i) 
-                             for xj in x] for i in range(len(x) - 1)])
-    return dot(chq[1:].reshape((1, -1)), UM).reshape((-1, ))
+class Chebychev(OptimizationProblem):
+    def __init__(self):
+        ## degree determined by input of function call
+        pass
+    
+    def f(self, x):
+        """            
+        norm(chebyquad_fcn)**2                
+        """
+        chq = chebyquad_fcn(x)
+        return np.dot(chq, chq)
+
+    def grad(self, x):
+        """
+        Evaluation of the gradient function of chebyquad
+        """
+        chq = chebyquad_fcn(x)
+        UM = 4. / len(x) * np.array([[(i+1) * U(2. * xj - 1., i) 
+                                 for xj in x] for i in range(len(x) - 1)])
+        return np.dot(chq[1:].reshape((1, -1)), UM).reshape((-1, ))
     
 if __name__ == '__main__':
-    x=linspace(0,1,8)
-    xmin= so.fmin_bfgs(chebyquad,x,gradchebyquad)  # should converge after 18 iterations  
+    
+    cheby_prob = Chebychev()
+    opt = OptimizationMethod()
+    
+    for n in [4, 8, 11]:
+        x0 = np.linspace(0, 1, n)
+        
+        newton_sol, _ = opt.newton_optimization(cheby_prob, x0, display_log = False)
+        scipy_sol = so.fmin_bfgs(cheby_prob.f, x0, cheby_prob.grad, disp = False)
+        
+        diff = np.linalg.norm(newton_sol - scipy_sol, 2)
+        
+        print('n = ', n)
+        print('newton_sol:', newton_sol, 'residual:', cheby_prob.f(newton_sol))
+        print('scipy_bfgs_sol', scipy_sol, 'residual:', cheby_prob.f(scipy_sol))
+        print('difference in 2 norm: {}'.format(diff))
+        print()
+        
+        ## Solution differs quite a bit for n = 8, 11, however, ours should be better due to smaller residual
