@@ -1,16 +1,13 @@
 from scipy.optimize import fmin
 import numpy as np
 
-
 class OptimizationMethod:
     """
     The optimization Method Class is an abstract class representing a Quasi Newton method
-
     Initialization
     ----
     x_0: Vector (numpy array)
         Initial guess
-
     Attributes
     ----
     x_k: Vector (numpy array)
@@ -21,7 +18,13 @@ class OptimizationMethod:
         Number of iterations that was used to solve the problem
     """
 
-    def __init__(self):
+    def __init__(self, roh = 0.1, sig = 0.7, tau = 0.1, kai = 9):
+        self.roh = roh
+        self.sig = sig
+        self.tau = tau
+        self.kai = kai
+        if (roh > 1/2 or roh < 0 or sig <= roh or sig > 1):
+            raise ValueError('Invalid choice of parameters.')
         # possibly track things, e.g., hessian evaluations
         pass
 
@@ -45,14 +48,94 @@ class OptimizationMethod:
         # disp = False prevents printing optimization result to console
         return fmin(h, alpha_0, disp=False)
 
-    def __inexact_line_search(self):
-        raise NotImplementedError
+    def __Goldsteincondition(self, alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l):
+        LC = False
+        RC = False
+        if f_alpha_0 >= f_alpha_l + (1-self.roh)*(alpha_0 - alpha_l)*fp_alpha_l:
+            LC = True
+        if f_alpha_0 <= f_alpha_l + self.roh*(alpha_0 - alpha_l)*fp_alpha_l:
+            RC = True
+        return [LC, RC]
 
-    def __find_acceptable_point(self):
-        raise NotImplementedError
+    def __Wolfecondition(self, alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l):
+        LC = False
+        RC = False
+        
+        if fp_alpha_0 >= self.sig*fp_alpha_l:
+            LC = True
+        if f_alpha_0 <= f_alpha_l + self.roh*(alpha_0 - alpha_l)*fp_alpha_l:
+            RC = True
+        return [LC, RC]
+    
 
-    def newton_optimization(self, problem, x0, use_exact_line_search=True, display_log=True,
-                            tol = 1e-8, maxiter = 100, callback = None):
+    def __extrapolation(self, alpha_0, alpha_l, fp_alpha_0, fp_alpha_l):
+        delta_alpha = (alpha_0 - alpha_l)*((fp_alpha_0)/(fp_alpha_l - fp_alpha_0))
+        return delta_alpha
+    
+    def __interpolation(self, alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l):
+        alpha_bar = ((alpha_0 - alpha_l)**2 *fp_alpha_l)/(2*(f_alpha_l - f_alpha_0 + (alpha_0 - alpha_l)*fp_alpha_l))
+        return alpha_bar
+    
+    
+    def __Block1(self, alpha_0, alpha_l, fp_alpha_0, fp_alpha_l): #extrapolation block
+        delta_alpha_0 = self.extrapolation(alpha_0, alpha_l, fp_alpha_0, fp_alpha_l)
+        delta_alpha_0 = max(delta_alpha_0, self.tau*(alpha_0 - alpha_l))
+        delta_alpha_0 = min(delta_alpha_0, self.kai*(alpha_0 - alpha_l))
+        alpha_l = alpha_0
+        alpha_0 = alpha_0 + delta_alpha_0
+        return [alpha_0, alpha_l]
+    
+    def __Block2(self, alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l): #interpolation block
+        alpha_u = min(alpha_0, alpha_u)
+        alpha_0_bar = self.interpolation(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
+        alpha_0_bar = max(alpha_0_bar, alpha_l + self.tau*(alpha_u - alpha_l))
+        alpha_0_bar = min(alpha_0_bar, alpha_u - self.tau*(alpha_u - alpha_l))
+        alpha_0 = alpha_0_bar
+        return [alpha_0, alpha_u]
+    
+
+    def __find_alpha_inexact_line_search(self, f, direction, alpha_l = 0, alpha_u = 10**(99), Goldstein = True, Wolfe = False):
+        """
+        Perform inexact line search to determine alpha_k
+        that minimizes f(x_k + alpha_k * s_k)
+        (see 3.6 - 3.12)
+        :return: alpha_k, f(x_k + alpha_k * s_k)
+        """
+        #which condition to be used is choosen by the user
+        #alpha_0 = np.random.randint(alpha_l,alpha_u) #maybe something better here instead of randint?
+        alpha_0 = 0.123
+        eps = 1e-8
+        f_alpha = lambda alpha: f(self.x_k + alpha * direction)
+        fp_alpha = lambda alpha: (f_alpha(alpha + 0.5 * eps)  - f_alpha(alpha - 0.5 * eps)) / eps 
+    
+        f_alpha_l = f_alpha(alpha_l)
+        f_alpha_0 = f_alpha(alpha_0)
+        
+        fp_alpha_l = fp_alpha(alpha_l)
+        fp_alpha_0 = fp_alpha(alpha_0)
+        
+        if (Goldstein == False and Wolfe == False) or (Goldstein == True and Wolfe == True):
+            raise ValueError('Choose Goldstein or Wolfe condition.') 
+            
+        while not (self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l) and self.__Goldsteincondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)):
+            if self.__Wolfecondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_0, fp_alpha_l) == False:
+                temp = self.__Block1(alpha_0, alpha_l, fp_alpha_0, fp_alpha_l)
+                alpha_0 = temp[0]
+                alpha_l = temp[1]
+            else:
+                temp = self.__Block2(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
+                alpha_0 = temp[0]
+                alpha_u = temp[1]
+
+            f_alpha_l = f_alpha(alpha_l)
+            f_alpha_0 = f_alpha(alpha_0)
+            fp_alpha_l = fp_alpha(alpha_l)
+            fp_alpha_0 = fp_alpha(alpha_0)
+
+        return [alpha_0, f_alpha(alpha_0)] 
+
+    def newton_optimization(self, problem, x0, use_exact_line_search=True, use_inexact_line_search = False, display_log=True,
+                            tol = 1e-8, maxiter = 1000, callback = None):
         """
         Solve optimization using base Newton method (see 3.3)
         :param
@@ -71,9 +154,14 @@ class OptimizationMethod:
             # Update s_k
             s_k = self.__get_newton_direction(problem)
             alpha = 1
-            if use_exact_line_search:
+            if use_exact_line_search == True:
                 alpha = self.__find_alpha_exact_line_search(problem.f, s_k)
+            
+            elif use_inexact_line_search == True:
+                alpha = self.__find_alpha_inexact_line_search(problem.f, s_k)[0]
+                
             x_k_plus_1 = self.x_k + alpha * s_k
+
 
             # Break condition, update smaller than a prescribed tolerance
             if np.linalg.norm(alpha * s_k, 2) < tol:
@@ -92,6 +180,8 @@ class OptimizationMethod:
             successful_message = "Optimization successful using basic newton method"
             print(successful_message)
             line_search_message = "With use of exact line search" if use_exact_line_search else None
+            line_search_message = "With use of inexact line search" if use_inexact_line_search else None
+
             if line_search_message is not None:
                 print(line_search_message)
             number_of_iteration_message = f"Number of iteration: {nr_iterations}"
