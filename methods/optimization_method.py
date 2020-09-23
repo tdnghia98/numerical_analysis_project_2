@@ -94,7 +94,7 @@ class OptimizationMethod:
         return [alpha_0, alpha_u]
     
 
-    def __find_alpha_inexact_line_search(self, f, direction, alpha_0 = None, alpha_l = 0, alpha_u = 10**(99), Goldstein = True, Wolfe = False, eps = 1e-8):
+    def __find_alpha_inexact_line_search(self, f, direction, alpha_0 = None, alpha_l = 0, alpha_u = 10**(99), Goldstein = True, Wolfe = False, eps = 1e-6):
         """
         Perform inexact line search to determine alpha_k
         that minimizes f(x_k + alpha_k * s_k)
