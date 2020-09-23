@@ -94,7 +94,7 @@ class OptimizationMethod:
         return [alpha_0, alpha_u]
     
 
-    def __find_alpha_inexact_line_search(self, f, direction, alpha_l = 0, alpha_u = 10**(99), Goldstein = True, Wolfe = False):
+    def __find_alpha_inexact_line_search(self, f, direction, alpha_l = 0, alpha_u = 10**(99), Goldstein = True, Wolfe = False, eps = 1e-8):
         """
         Perform inexact line search to determine alpha_k
         that minimizes f(x_k + alpha_k * s_k)
@@ -104,7 +104,6 @@ class OptimizationMethod:
         #which condition to be used is choosen by the user
         #alpha_0 = np.random.randint(alpha_l,alpha_u) #maybe something better here instead of randint?
         alpha_0 = 0.123
-        eps = 1e-8
         f_alpha = lambda alpha: f(self.x_k + alpha * direction)
         fp_alpha = lambda alpha: (f_alpha(alpha + 0.5 * eps)  - f_alpha(alpha - 0.5 * eps)) / eps 
     
