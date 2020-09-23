@@ -49,8 +49,8 @@ if __name__ == '__main__':
     opt = OptimizationMethod()
     sol, _ = opt.newton_optimization(rosen, x0, linesearch = 'inexact',
                                      callback = callback, tol = 1e-12, maxiter = 100,
-                                     inexact_linesearch_wolfe = True,
-                                     inexact_linesearch_goldstein = False)
+                                     inexact_linesearch_wolfe = False,
+                                     inexact_linesearch_goldstein = True)
     
     ## contour plotting
     n = 100
