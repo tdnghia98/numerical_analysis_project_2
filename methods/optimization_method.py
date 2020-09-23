@@ -103,7 +103,7 @@ class OptimizationMethod:
         """
         #which condition to be used is choosen by the user
         #alpha_0 = np.random.randint(alpha_l,alpha_u) #maybe something better here instead of randint?
-        alpha_0 = 0.9
+        alpha_0 = 0.5
         f_alpha = lambda alpha: f(self.x_k + alpha * direction)
         fp_alpha = lambda alpha: (f_alpha(alpha + 0.5 * eps)  - f_alpha(alpha - 0.5 * eps)) / eps 
     
@@ -114,7 +114,7 @@ class OptimizationMethod:
         fp_alpha_0 = fp_alpha(alpha_0)
         
         if (Goldstein == False and Wolfe == False) or (Goldstein == True and Wolfe == True):
-            raise ValueError('Choose Goldstein or Wolfe condition.') 
+            raise NameError('Choose Goldstein or Wolfe condition.') 
         if Goldstein == True:
             condition = self.__Goldsteincondition(alpha_0, alpha_l, f_alpha_0, f_alpha_l, fp_alpha_l)
         if Wolfe == True:
