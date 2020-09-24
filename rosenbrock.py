@@ -41,17 +41,12 @@ if __name__ == '__main__':
 #    rosen = Rosenbrock(exact_grad = False, exact_hessian = False)
     rosen = Rosenbrock(exact_grad = True, exact_hessian = True)
     x0 = np.array([0, -0.5]) # approximately same as project picture
-    
-    ## callback function for saving iterations
-    iters = [np.copy(x0)]
-    callback = lambda x: iters.append(np.copy(x))
-    
     opt = OptimizationMethod()
-    sol, _ = opt.newton_optimization(rosen, x0, linesearch = 'inexact',
-                                     callback = callback, tol = 1e-12, maxiter = 100,
-                                     inexact_linesearch_wolfe = False,
-                                     inexact_linesearch_goldstein = True)
     
+    tol = 1e-8
+    x_opt = np.array([1., 1.])
+    
+    ######################
     ## contour plotting
     n = 100
     xx = np.linspace(-1, 2, n)
@@ -63,11 +58,40 @@ if __name__ == '__main__':
     ## plot contours
     cont = pl.contour(X, Y, Z, levels = np.logspace(0, 3, 10), linewidths = 1)
     pl.title('Rosenbrock contour plot')
+    ######################
     
-    pl.figure()
-    ## plot contours
-    cont = pl.contour(X, Y, Z, levels = np.logspace(0, 3, 5), linewidths = 1)
-    pl.clabel(cont, inline=1, fontsize=10) ## adding labels
-    pl.plot(*zip(*iters), marker = 'o') ## plot solution path
-    pl.plot(*sol, marker = 'x', color = 'red', markersize = 15) ## add marker for minimum
-    pl.title('Algorithm steps marked')
+    basic = {'linesearch': None}
+    ex_linesearch = {'linesearch': 'exact'}
+    inex_linesearch_wolfe = {'linesearch': 'inexact', 'inexact_linesearch_wolfe': True, 'inexact_linesearch_goldstein': False}
+    inex_linesearch_gold = {'linesearch': 'inexact', 'inexact_linesearch_wolfe': False, 'inexact_linesearch_goldstein': True}
+    
+    for runmode in [basic, ex_linesearch, inex_linesearch_wolfe, inex_linesearch_gold]:
+        for hessianUpdate in range(6):
+            kwargs = runmode.copy()
+            
+            sol, nr_iters = opt.newton_optimization(rosen, x0, callback = None, tol = tol, maxiter = 100, display_log = False,
+                                             hessianUpdate = hessianUpdate, **kwargs)
+            
+#            assert np.linalg.norm(x_opt - sol, 2) < tol, (sol, np.linalg.norm(x_opt - sol, 2), nr_iters, runmode, hessianUpdate)
+            if np.linalg.norm(x_opt - sol, 2) > tol:
+                print('Convergence failure for ', runmode, 'hessianUpdate ', hessianUpdate)
+                print('sol: ', sol, ' difference: ', np.linalg.norm(x_opt - sol, 2))
+                print('iterations', nr_iters)
+                print('\n\n')
+                
+                
+#############
+# Plot with exact linesearch
+## callback function for saving iterations
+iters = [np.copy(x0)]
+callback = lambda x: iters.append(np.copy(x))
+
+sol, nr_iters = opt.newton_optimization(rosen, x0, callback = callback, tol = tol, maxiter = 100, display_log = False,
+                                        hessianUpdate = 0, linesearch = 'exact')
+
+pl.figure()
+## plot contours
+cont = pl.contour(X, Y, Z, levels = np.logspace(0, 3, 5), linewidths = 1)
+pl.clabel(cont, inline=1, fontsize=10) ## adding labels
+pl.plot(*zip(*iters), marker = 'o') ## plot solution path
+pl.plot(*sol, marker = 'x', color = 'red', markersize = 15) ## add marker for minimum

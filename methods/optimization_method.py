@@ -156,40 +156,47 @@ class OptimizationMethod:
         :param 
             x0: Initial guess
         :param 
+            hessianUpdate: method for updating hessian matrix
+            0: Exact Hessian
+            1: DFP
+            2: Good Broyden
+            3: Bad Broyden
+            4: Symmetric Broyden
+            5: BFGS
+        :param 
             tol: Tolerance for termination criterion
         :return:
         """
         # Initialize iteration
         self.x_k = np.copy(x0)
         
-        # x(*)
-
-        self.nr_iteration = 1
-        dirGen = self.__update_newton_direction(problem.function,hessianUpdate)
-        while True:
+#        hessGen = self.__update_hessian(problem, hessianUpdate)
+#        dirGen = self.__update_newton_direction(problem, hessianUpdate, hessGen)
+        dirGen = self.__update_newton_direction(problem, hessianUpdate)
+        
+        for nr_iterations in range(1, maxiter + 1):
             # Update s_k
             self.s_k = dirGen.__next__()
             alpha = 1
             if linesearch:
                 if linesearch == 'exact':
-                    alpha = self.__find_alpha_exact_line_search(problem.f, s_k)
+                    alpha = self.__find_alpha_exact_line_search(problem.f, self.s_k)
                 elif linesearch == 'inexact':
-                    alpha = self.__find_alpha_inexact_line_search(problem.f, s_k, alpha_0 = alpha,
+                    alpha = self.__find_alpha_inexact_line_search(problem.f, self.s_k, alpha_0 = alpha,
                                                                   Wolfe = inexact_linesearch_wolfe,
                                                                   Goldstein = inexact_linesearch_goldstein)[0]    
                 else:
                     raise KeyError('invalid linesearch input')
-            
-            x_k_plus_1 = self.x_k + alpha * s_k
+            x_k_plus_1 = self.x_k + alpha*self.s_k
             
             if display_log:
                 print('iteration:', nr_iterations)
                 print('linesearch alpha:', alpha)
-                print('update:', np.linalg.norm(alpha * s_k, 2))
+                print('update:', np.linalg.norm(alpha*self.s_k, 2))
                 print('residual:', np.linalg.norm(problem.grad(x_k_plus_1), 2))
                 
             # Break condition, update smaller than a prescribed tolerance
-            if np.linalg.norm(alpha * s_k, 2) < tol:
+            if np.linalg.norm(alpha*self.s_k, 2) < tol:
                 break
 
             # Reassign x_k
@@ -197,9 +204,6 @@ class OptimizationMethod:
             # callback function, for e.g. tracking the iteration
             if callback:
                 callback(self.x_k)
-            # update hessian
-            self.__update_hessian()
-            
 
         if display_log:
             print()
@@ -217,7 +221,8 @@ class OptimizationMethod:
 
         return self.x_k, nr_iterations
 
-    def __update_newton_direction(self, f, hessianUpdate):
+#    def __update_newton_direction(self, problem, hessianUpdate, hessGen):
+    def __update_newton_direction(self, problem, hessianUpdate):
         """
         Get the newton direction vector
         :param
@@ -226,179 +231,170 @@ class OptimizationMethod:
         :return:
             New newton direction
         """
-        hessGen = self.__update_hessian(f, hessianUpdate)
+        hessGen = self.__update_hessian(problem, hessianUpdate)
             
         while True:
-            gradient_matrix = grad(f)(self.x_k)
+            gradient_vector = problem.grad(self.x_k)
             hessian_matrix = hessGen.__next__()
             
             if hessianUpdate == 0 or hessianUpdate == 5:
             # Newton direction (see 3.3)
-                yield -np.linalg.solve(hessian_matrix, gradient_matrix)
+                yield -np.linalg.solve(hessian_matrix, gradient_vector)
             else:
-                yield -np.dot(hessian_matrix,gradient_matrix)
+                yield -np.dot(hessian_matrix, gradient_vector)
+        
                 
-    def __update_hessian(self, f, hessianUpdate):
-      
+    def __update_hessian(self, problem, hessianUpdate):
         if hessianUpdate == 0:
             while True:
-                yield hessian(f)(self.x_k)
+                yield problem.hessian(self.x_k)
         elif hessianUpdate == 1:
-            DFPgen = self.DFP(f)
+            DFPgen = self.DFP(problem)
             while True:
                 H = DFPgen.__next__()
                 yield H
         elif hessianUpdate == 2:
-            GBgen = self.GoodBroyden(f)
+            GBgen = self.GoodBroyden(problem)
             while True:
                 H = GBgen.__next__()
                 yield H
         elif hessianUpdate == 3:
-            BBgen = self.BadBroyden(f)
+            BBgen = self.BadBroyden(problem)
             while True:
                 H = BBgen.__next__()
                 yield H
         elif hessianUpdate == 4:
-            SBgen = self.SymmetricBroyden(f)
+            SBgen = self.SymmetricBroyden(problem)
             while True:
                 H = SBgen.__next__()
                 yield H
         elif hessianUpdate == 5:
-            BFGSgen = self.BFGS(f)
+            BFGSgen = self.BFGS(problem)
             while True:
                 B = BFGSgen.__next__()
                 yield B
-        
 
     
-    def DFP(self, f):
-        "If its the first iteration we take the identity matrix as the Hessian"
-        n = len(self.x_0)
-        #H = np.eye(n)
+    def DFP(self, problem):
+        # If its the first iteration we take the identity matrix as the Hessian
+        n = len(self.x_k)
         ##########"For now Hzero will be the actual hessian just to get the function to work"
         H = np.eye(n)
-        grad_old = grad(f)(self.x_k)
-        "In this while loop we generate the rest of the Hessians"
+        grad_old = problem.grad(self.x_k)
+        # In this while loop we generate the rest of the Hessians
         while True:
-            "We yield at the start of the loop since the first Hessian is created prior to the loop"
+            # We yield at the start of the loop since the first Hessian is created prior to the loop
             yield H
-            "Here get calculate the necessary gradient"
-            grad_new = grad(f)(self.x_k)
-            "Then we get y_k, that is, the change in gradient"
+            # Here get calculate the necessary gradient
+            grad_new = problem.grad(self.x_k)
+            # Then we get y_k, that is, the change in gradient
             y_k = grad_new - grad_old
-            "we first get the first term; "
-            numer1 = H.dot(y_k)
-            tmpfactor = np.matmul(y_k.T, H)
-            numer1 = np.matmul(numer1, tmpfactor)
-            denom1 = np.matmul(tmpfactor, y_k)
+            # we first get the first term;
+            tmpfactor = (np.array([y_k])) @ H
+            numer1 = np.outer(H.dot(y_k), tmpfactor)
+            denom1 = np.dot(tmpfactor, y_k)
             term1 = numer1/denom1
-            "then we get the second term; "
+            # then we get the second term; 
             numer2 = np.outer(self.s_k, self.s_k)
-            denom2 = np.matmul(self.s_k,     y_k)
+            denom2 = np.dot(self.s_k, y_k)
             term2 = numer2/denom2
-            "Lastly we set up the new Hessian"
-            H = H - term1 - term2
+            # Lastly we set up the new Hessian
+            H = H - term1 + term2
             grad_old = grad_new
 
-    def BFGS(self, f):
-        "If its the first iteration we take the identity matrix as the Hessian"
-        n = len(self.x_0)
+    def BFGS(self, problem):
+#        "If its the first iteration we take the identity matrix as the Hessian"
+        n = len(self.x_k)
         #H = np.eye(n)
         ###########"For now Hzero will be the actual hessian just to get the function to work"
         #B = hessian(f)(self.x_k)
         B = np.eye(n)
-        grad_old = grad(f)(self.x_k)
-        "In this while loop we generate the rest of the Hessians"
+        grad_old = problem.grad(self.x_k)
+#        "In this while loop we generate the rest of the Hessians"
         while True:
-            "We yield at the start of the loop since the first Hessian is created prior to the loop"
+#            "We yield at the start of the loop since the first Hessian is created prior to the loop"
             yield B
-            "Here get calculate the necessary gradient"
-            grad_new = grad(f)(self.x_k)
-            "Then we get y_k, that is, the change in gradient"
+#            "Here get calculate the necessary gradient"
+            grad_new = problem.grad(self.x_k)
+#            "Then we get y_k, that is, the change in gradient"
             y_k = grad_new - grad_old          
             
             
             
-            "we first get the first term; "
+#            "we first get the first term; "
             numer1 = B.dot(self.s_k)
             tmpfactor = np.matmul(self.s_k.T, B)
             numer1 = np.matmul(numer1, tmpfactor)
             denom1 = np.matmul(tmpfactor, y_k)
             term1 = numer1/denom1
-            "then we get the second term; "
+#            "then we get the second term; "
             numer2 = np.outer(y_k,  y_k)
             denom2 = np.matmul(y_k, self.s_k)
             term2 = numer2/denom2
-            "Lastly we set up the new Hessian"
+#            "Lastly we set up the new Hessian"
             B = B - term1 - term2
             grad_old = grad_new
 
-    def GoodBroyden(self,f):
-        "GoodBroyden yields the inverse hessian!!"
-        n = len(self.x_0)
-        "If its the first iteration we take the identity matrix as the inverse hessian"
+    def GoodBroyden(self, problem):
+#        "GoodBroyden yields the inverse hessian!!"
+        n = len(self.x_k)
+#        "If its the first iteration we take the identity matrix as the inverse hessian"
         H = np.eye(n)
-        grad_old = grad(f)(self.x_k)
+        grad_old = problem.grad(self.x_k)
         x_old = self.x_k
-        "In this while loop we generate the rest of the inverse Hessians"
+#        "In this while loop we generate the rest of the inverse Hessians"
         while True:
-            "We yield at the start of the loop since the first Hessian is created prior to the loop"
+#            "We yield at the start of the loop since the first Hessian is created prior to the loop"
             yield H
-            "Here get calculate the necessary gradient"
-            grad_new = grad(f)(self.x_k)
-            "Then we get dg, that is, the change in gradient"
+#            "Here get calculate the necessary gradient"
+            grad_new = problem.grad(self.x_k)
+#            "Then we get dg, that is, the change in gradient"
             dg = grad_new - grad_old
-            "Then we get dx, that is, the change in newton direction"
+#            "Then we get dx, that is, the change in newton direction"
             dx = self.x_k - x_old
             if dx@dx != 0:
                 x_old = self.x_k
-                H += np.outer(dx-H@dg,H@dx)/(H@dx)@dg
+                Hdx = H@dx
+                H += np.outer(dx - H@dg, Hdx)/((Hdx)@dg)
 
-    def BadBroyden(self,f):
-        "BadBroyden yields the inverse hessian!!"
-        n = len(self.x_0)
-        "If its the first iteration we take the identity matrix as the inverse hessian"
+    def BadBroyden(self, problem):
+#        "BadBroyden yields the inverse hessian!!"
+        n = len(self.x_k)
+#        "If its the first iteration we take the identity matrix as the inverse hessian"
         H = np.eye(n)
-        grad_old = grad(f)(self.x_k)
+        grad_old = problem.grad(self.x_k)
         x_old = self.x_k
-        "In this while loop we generate the rest of the inverse Hessians"
+#        "In this while loop we generate the rest of the inverse Hessians"
         while True:
-            "We yield at the start of the loop since the first Hessian is created prior to the loop"
+#            "We yield at the start of the loop since the first Hessian is created prior to the loop"
             yield H
-            "Here get calculate the necessary gradient"
-            grad_new = grad(f)(self.x_k)
-            "Then we get dg, that is, the change in gradient"
+#            "Here get calculate the necessary gradient"
+            grad_new = problem.grad(self.x_k)
+#            "Then we get dg, that is, the change in gradient"
             dg = grad_new - grad_old
-            "Then we get dx, that is, the change in newton direction"
+#            "Then we get dx, that is, the change in newton direction"
             dx = self.x_k - x_old
             if dx@dx != 0:
                 x_old = self.x_k
-                H += np.outer((dx - H@dg)/(dg@dg),dg)
+                H += np.outer((dx - H@dg)/(dg@dg), dg)
                 
-    def SymmetricBroyden(self,f):
-        "SymmetricBroyden yields the inverse hessian!!"
-        n = len(self.x_0)
-        "If its the first iteration we take the identity matrix as the inverse hessian"
+    def SymmetricBroyden(self, problem):
+#        "SymmetricBroyden yields the inverse hessian!!"
+        n = len(self.x_k)
+#        "If its the first iteration we take the identity matrix as the inverse hessian"
         H = np.eye(n)
-        grad_old = grad(f)(self.x_k)
+        grad_old = problem.grad(self.x_k)
         x_old = self.x_k
-        "In this while loop we generate the rest of the inverse Hessians"
+#        "In this while loop we generate the rest of the inverse Hessians"
         while True:
-            "We yield at the start of the loop since the first Hessian is created prior to the loop"
+#            "We yield at the start of the loop since the first Hessian is created prior to the loop"
             yield H
-            "Here get calculate the necessary gradient"
-            grad_new = grad(f)(self.x_k)
-            "Then we get dg, that is, the change in gradient"
+#            "Here get calculate the necessary gradient"
+            grad_new = problem.grad(self.x_k)
+#            "Then we get dg, that is, the change in gradient"
             dg = grad_new - grad_old
-            "Then we get dx, that is, the change in newton direction"
+#            "Then we get dx, that is, the change in newton direction"
             dx = self.x_k - x_old
             if dx@dx != 0:
                 x_old = self.x_k
                 H += np.outer(dx-H@dg,dx-H@dg)/((dx-H@dg)@dg)
-
-
-
-
-
-
-

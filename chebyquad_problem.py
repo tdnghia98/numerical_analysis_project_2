@@ -93,7 +93,7 @@ if __name__ == '__main__':
     for n in [4, 8, 11]:
         x0 = np.linspace(0, 1, n)
         
-        newton_sol, _ = opt.newton_optimization(cheby_prob, x0, display_log = False)
+        newton_sol, _ = opt.newton_optimization(cheby_prob, x0, tol = 1e-8, display_log = False, linesearch = 'exact')
         scipy_sol = so.fmin_bfgs(cheby_prob.f, x0, cheby_prob.grad, disp = False)
         
         diff = np.linalg.norm(newton_sol - scipy_sol, 2)
