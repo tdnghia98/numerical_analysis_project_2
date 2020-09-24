@@ -3,10 +3,7 @@ from methods.optimization_method import OptimizationMethod
 from optimization_problem import *
 import numpy as np
 
-
-def rosenbrock(x):
-    return 100 * (x[1] - x[0]) ** 2 + (1 - x[0]) ** 2  # Rosenbrock function
-
+## DEPRECATED
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
